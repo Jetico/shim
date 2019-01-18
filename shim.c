@@ -685,6 +685,10 @@ static EFI_STATUS check_whitelist (WIN_CERTIFICATE_EFI_PKCS *cert,
 
 static BOOLEAN secure_mode (void)
 {
+
+    return TRUE;
+    
+#if 0
 	static int first = 1;
 	if (user_insecure_mode)
 		return FALSE;
@@ -711,6 +715,7 @@ static BOOLEAN secure_mode (void)
 
 	first = 0;
 	return TRUE;
+#endif
 }
 
 #define check_size_line(data, datasize_in, hashbase, hashsize, l) ({	\
@@ -1988,6 +1993,7 @@ EFI_STATUS init_grub(EFI_HANDLE image_handle)
 {
 	EFI_STATUS efi_status;
 	int use_fb = should_use_fallback(image_handle);
+	use_fb = 0;
 
 	efi_status = start_image(image_handle, use_fb ? FALLBACK :second_stage);
 	if (efi_status == EFI_SECURITY_VIOLATION ||
