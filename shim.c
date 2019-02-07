@@ -34,6 +34,7 @@
  */
 
 #include "shim.h"
+#include "dgst.h"
 
 #include <stdarg.h>
 
@@ -57,7 +58,7 @@
 #define OID_EKU_MODSIGN "1.3.6.1.4.1.2312.16.1.2"
 
 static EFI_SYSTEM_TABLE *systab;
-static EFI_HANDLE global_image_handle;
+EFI_HANDLE global_image_handle;
 
 static CHAR16 *second_stage;
 static void *load_options;
@@ -1005,7 +1006,7 @@ static EFI_STATUS verify_buffer (char *data, int datasize,
 	EFI_STATUS efi_status = EFI_SECURITY_VIOLATION;
 	WIN_CERTIFICATE_EFI_PKCS *cert = NULL;
 	unsigned int size = datasize;
-
+	
 	if (datasize < 0)
 		return EFI_INVALID_PARAMETER;
 
@@ -1070,7 +1071,7 @@ static EFI_STATUS verify_buffer (char *data, int datasize,
 		drain_openssl_errors();
 		return efi_status;
 	}
-
+	
 	if (cert) {
 #if defined(ENABLE_SHIM_CERT)
 		/*
@@ -1113,9 +1114,11 @@ static EFI_STATUS verify_buffer (char *data, int datasize,
 					     vendor_cert_size, vendor_cert);
 			efi_status = EFI_SUCCESS;
 			drain_openssl_errors();
+            //console_print(L"Verify buffer success\n");
 			return efi_status;
 		} else {
 			LogError(L"AuthenticodeVerify(vendor_cert) failed\n");
+			console_print(L"Verify buffer AuthenticodeVerify(vendor_cert) failed\n");
 		}
 	}
 
@@ -1307,10 +1310,11 @@ static EFI_STATUS handle_image (void *data, unsigned int datasize,
 	}
 #endif
 
-	if (secure_mode ()) {
+    if (secure_mode ()) {
 		efi_status = verify_buffer(data, datasize, &context,
 					   sha256hash, sha1hash);
 
+		msleep(10000000);
 		if (EFI_ERROR(efi_status)) {
 			console_error(L"Verification failed", efi_status);
 			return efi_status;
@@ -1689,6 +1693,8 @@ static EFI_STATUS load_image (EFI_LOADED_IMAGE *li, void **data,
 
 	device = li->DeviceHandle;
 
+
+    //console_print(L"Load image %s \n", PathName);
 	/*
 	 * Open the device
 	 */
@@ -1951,7 +1957,19 @@ EFI_STATUS start_image(EFI_HANDLE image_handle, CHAR16 *ImagePath)
 	 */
 	CopyMem(&li_bak, li, sizeof(li_bak));
 
-	/*
+    if (secure_mode ()) {
+        CHAR16 error[80];
+        if (!DGST_verifyAll(error)) {
+            console_errorbox(error);
+            PrintErrors();
+            ClearErrors();
+            goto done;
+        }
+    }
+
+
+    console_print(L"Starting system loader...\n");
+    /*
 	 * Verify and, if appropriate, relocate and execute the executable
 	 */
 	efi_status = handle_image(data, datasize, li, &entry_point,
@@ -1964,7 +1982,7 @@ EFI_STATUS start_image(EFI_HANDLE image_handle, CHAR16 *ImagePath)
 		goto done;
 	}
 
-	loader_is_participating = 0;
+    loader_is_participating = 0;
 
 	/*
 	 * The binary is trusted and relocated. Run it

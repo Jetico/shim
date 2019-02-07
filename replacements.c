@@ -135,7 +135,7 @@ static EFI_STATUS EFIAPI
 exit_boot_services(EFI_HANDLE image_key, UINTN map_key)
 {
 	if (loader_is_participating ||
-	    verification_method == VERIFIED_BY_HASH) {
+	verification_method != VERIFIED_BY_NOTHING) {
 		unhook_system_services();
 		EFI_STATUS efi_status;
 		efi_status = gBS->ExitBootServices(image_key, map_key);
